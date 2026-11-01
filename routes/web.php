@@ -48,12 +48,19 @@ Route::middleware('auth')->group(function () {
             
         Route::get('/journal/group/{group}/subject/{subject}', [JournalController::class, 'grid'])
             ->name('journal.grid');
+
+        Route::post('/journal/group/{group}/subject/{subject}/import', [JournalController::class, 'import'])
+            ->name('journal.import');
             
+        Route::get('/journal/group/{group}/subject/{subject}/export', [JournalController::class, 'exportTemplate'])
+            ->name('journal.export');
+
         Route::post('/journal/update-grid', [JournalController::class, 'updateGrid'])
             ->name('journal.update-grid');
 
         Route::get('/journal/{schedule}', [JournalController::class, 'edit'])
             ->name('journal.edit');
+
         Route::post('/journal/{schedule}', [JournalController::class, 'update'])
             ->name('journal.update');
     });

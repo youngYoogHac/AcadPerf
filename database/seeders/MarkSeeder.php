@@ -15,7 +15,7 @@ class MarkSeeder extends Seeder
             ['name' => '3', 'type' => 'grade'],
             ['name' => '2', 'type' => 'grade'],
             ['name' => 'Н', 'type' => 'attendance'],
-            ['name' => 'Б', 'type' => 'attendance'],
+            ['name' => 'П', 'type' => 'attendance'],
         ];
 
         foreach ($marks as $mark) {

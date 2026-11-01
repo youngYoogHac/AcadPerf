@@ -2,7 +2,25 @@
 
 @section('content')
     <div class="container" style="max-width: 100%; overflow-x: auto;">
-        <h1>Журнал: {{ $group->name }} — {{ $subject->name }}</h1>
+                {{-- ПАНЕЛЬ УПРАВЛЕНИЯ --}}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <h1 style="margin: 0;">Журнал: {{ $group->name }} — {{ $subject->name }}</h1>
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+                {{-- КНОПКА ЭКСПОРТА --}}
+                <a href="{{ route('journal.export', [$group->id, $subject->id]) }}" class="btn btn-small" style="background: #059669;">
+                    📥 Скачать шаблон
+                </a>
+
+                {{-- ФОРМА ИМПОРТА --}}
+                <form action="{{ route('journal.import', [$group->id, $subject->id]) }}" method="POST" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: center; background: #f8fafc; padding: 10px 15px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 0;">
+                    @csrf
+                    <label for="excel_file" style="margin: 0; font-weight: bold; font-size: 0.9rem;">Импорт:</label>
+                    <input type="file" name="excel_file" id="excel_file" required style="font-size: 0.9rem;">
+                    <button type="submit" class="btn btn-small btn-secondary" style="margin: 0;">Загрузить</button>
+                </form>
+            </div>
+        </div>
 
         <form action="{{ route('journal.update-grid') }}" method="POST">
             @csrf

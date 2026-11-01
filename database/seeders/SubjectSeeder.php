@@ -9,7 +9,7 @@ class SubjectSeeder extends Seeder
 {
     public function run(): void
     {
-        Subject::updateOrCreate(['name' => 'Математика']);
+        Subject::updateOrCreate(['name' => 'Системное программирование']);
         Subject::updateOrCreate(['name' => 'Физика']);
     }
 }

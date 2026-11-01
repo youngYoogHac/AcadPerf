@@ -8,6 +8,7 @@ use App\Models\Mark;
 use App\Models\Schedule;
 use App\Models\Student;
 use App\Models\Subject;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -87,5 +88,37 @@ class JournalController extends Controller
             }
         }
         return back()->with('success', 'Ведомость сохранена!');
+    }
+
+    public function import(Request $request, Group $group, Subject $subject)
+    {
+        $request->validate([
+            'excel_file' => 'required|mimes:xlsx,xls,csv|max:2048'
+        ]);
+
+        $import = new \App\Imports\JournalImport($group, $subject);
+        Excel::import($import, $request->file('excel_file'));
+
+        $message = "Успешно обновлено оценок: {$import->savedCount}.";
+        
+        if (count($import->skippedStudents) > 0) {
+            $message .= " Нет в базе (студенты): " . implode(', ', array_unique($import->skippedStudents)) . ".";
+        }
+        
+        if (count($import->skippedDates) > 0) {
+            $message .= " Нет в расписании (даты): " . implode(', ', $import->skippedDates) . ".";
+        }
+
+        if (count($import->skippedMarks) > 0) {
+            $message .= " Неизвестные отметки: " . implode(', ', array_unique($import->skippedMarks)) . " (проверьте справочник оценок).";
+        }
+
+        return back()->with('success', $message);
+    }
+
+    public function exportTemplate(Group $group, Subject $subject)
+    {
+        $fileName = 'Журнал_' . $group->name . '_' . $subject->name . '.xlsx';
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\JournalTemplateExport($group, $subject), $fileName);
     }
 }
