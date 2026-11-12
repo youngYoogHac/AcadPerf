@@ -2,38 +2,37 @@
 
 namespace App\Exports;
 
-use App\Models\Group;
-use App\Models\Schedule;
-use App\Models\Student;
-use App\Models\Subject;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Carbon\Carbon;
 
-class JournalTemplateExport implements FromArray
+class JournalTemplateExport implements FromArray, WithTitle
 {
     protected $group;
     protected $subject;
+    protected $students;
+    protected $schedules;
 
-    public function __construct(Group $group, Subject $subject)
+    public function __construct($group, $subject, $students, $schedules)
     {
         $this->group = $group;
         $this->subject = $subject;
+        $this->students = $students;
+        $this->schedules = $schedules;
+    }
+
+    public function title(): string
+    {
+        return $this->group->name;
     }
 
     public function array(): array
     {
-        $students = Student::where('group_id', $this->group->id)->orderBy('last_name')->get();
-        $schedules = Schedule::where('group_id', $this->group->id)
-            ->where('subject_id', $this->subject->id)
-            ->orderBy('date')->get();
-
         $data = [];
-
-        // Строка 1: Заголовки (ФИО, подгруппа, Дата, сами даты)
         $row1 = ['ФИО', 'под группа', 'Дата'];
         $row2 = ['', '', 'пары'];
 
-        foreach ($schedules as $schedule) {
+        foreach ($this->schedules as $schedule) {
             $row1[] = Carbon::parse($schedule->date)->format('d.m.Y');
             $row2[] = 'пара ' . $schedule->pair_number;
         }
@@ -41,17 +40,12 @@ class JournalTemplateExport implements FromArray
         $data[] = $row1;
         $data[] = $row2;
 
-        // Строки со студентами
-        foreach ($students as $student) {
-            $studentRow = [
-                $student->last_name . ' ' . $student->first_name, // ФИО
-                '1.0', // Подгруппа (заглушка)
-                ''     // Дата (пустая колонка)
-            ];
+        foreach ($this->students as $student) {
+            $fullName = trim($student->last_name . ' ' . $student->first_name . ' ' . $student->middle_name);
+            $studentRow = [$fullName, $student->subgroup ?? '', ''];
             
-            // Заполняем пустые ячейки под даты
-            foreach ($schedules as $schedule) {
-                $studentRow[] = '';
+            foreach ($this->schedules as $schedule) {
+                $studentRow[] = ''; // Всегда пусто
             }
             $data[] = $studentRow;
         }

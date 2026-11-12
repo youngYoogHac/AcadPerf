@@ -10,17 +10,11 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $adminRole = Role::where('name', 'admin')->first();
         $teacherRole = Role::where('name', 'teacher')->first();
 
         User::updateOrCreate(
-            ['login' => 'admin'],
-            ['name' => 'Завуч', 'password' => 'admin123', 'role_id' => $adminRole->id]
-        );
-
-        User::updateOrCreate(
-            ['login' => 'teacher1'],
-            ['name' => 'Иванов Иван', 'password' => 'teacher123', 'role_id' => $teacherRole->id]
+            ['login' => 'teacher'],
+            ['name' => 'Преподаватель', 'password' => '123456', 'role_id' => $teacherRole->id]
         );
     }
 }

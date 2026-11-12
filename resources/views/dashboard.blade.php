@@ -1,30 +1,37 @@
 @extends('layouts.app')
 
-@section('title', 'Дашборд — AcadPerf')
-
 @section('content')
-    <section class="container">
-        <h1 class="page-title">Добро пожаловать!</h1>
-        
-        <div class="placeholder-card" style="margin-bottom: 30px;">
-            <h2>Вы вошли как: <strong>{{ auth()->user()->name }}</strong></h2>
-            <p>Ваша текущая роль в системе: <span class="role-badge">{{ auth()->user()->role?->name }}</span></p>
-        </div>
+<div class="container">
+    <h1>Мои группы</h1>
 
-        @if (auth()->user()->role?->name === 'admin')
-            <h3>Быстрые действия (Администратор):</h3>
-            <div style="display: flex; gap: 15px; margin-top: 15px;">
-                <a href="{{ route('groups.index') }}" class="btn">Управление группами</a>
-                <a href="{{ route('students.index') }}" class="btn">Управление студентами</a>
-                <a href="{{ route('schedules.index') }}" class="btn">Расписание</a>
-            </div>
-        @endif
+    {{-- Форма создания группы --}}
+    <form action="{{ route('groups.store') }}" method="POST" style="margin-bottom: 30px; display: flex; gap: 10px;">
+        @csrf
+        <input type="text" name="name" placeholder="Название группы (например, ИС-21)" required style="padding: 8px; border: 1px solid #ccc; border-radius: 5px;">
+        <button type="submit" class="btn">Создать группу</button>
+    </form>
 
-        @if (auth()->user()->role?->name === 'teacher')
-            <h3>Быстрые действия (Преподаватель):</h3>
-            <div style="display: flex; gap: 15px; margin-top: 15px;">
-                <a href="{{ route('teacher.schedule') }}" class="btn">Перейти к моим парам</a>
+    {{-- Список групп --}}
+        <div class="category-grid">
+        @foreach($groups as $group)
+            <div class="category-card" style="position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+                <a href="{{ route('groups.show', $group->id) }}" style="text-decoration: none; color: inherit; flex-grow: 1;">
+                    <span class="category-name">{{ $group->name }}</span>
+                    <span class="category-description" style="display: block; margin-top: 10px;">Студентов: {{ $group->students_count }}</span>
+                </a>
+
+                {{-- Кнопка удаления группы --}}
+                <form action="{{ route('groups.destroy', $group->id) }}" method="POST" 
+                      onsubmit="return confirm('Вы уверены, что хотите удалить группу {{ $group->name }} ВМЕСТЕ СО ВСЕМИ ОЦЕНКАМИ И СТУДЕНТАМИ? Это действие необратимо.');" 
+                      style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" style="background: none; border: none; color: #dc2626; cursor: pointer; font-size: 13px; font-weight: bold;">
+                        🗑 Удалить группу
+                    </button>
+                </form>
             </div>
-        @endif
-    </section>
+        @endforeach
+    </div>
+</div>
 @endsection

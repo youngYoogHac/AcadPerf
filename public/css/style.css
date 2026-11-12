@@ -670,3 +670,58 @@ button, input, select, textarea { font: inherit; }
     border: 1px solid #fecaca;
     margin-left: 8px;
 }
+
+/* Стили для Excel-таблицы */
+    .excel-table {
+        width: 100%;
+        border-collapse: collapse; /* Объединяет двойные рамки в одну */
+        font-size: 13px; /* Уменьшаем шрифт для компактности */
+        background: #fff;
+    }
+    
+    .excel-table th, .excel-table td {
+        border: 1px solid #94a3b8; /* Темно-серые линии сетки */
+        padding: 2px 4px; /* Маленькие внутренние отступы */
+        text-align: center;
+        vertical-align: middle;
+        height: 28px; /* Фиксированная высота строки */
+    }
+
+    .excel-table th {
+        background-color: #f1f5f9; /* Светло-серый фон заголовков */
+        font-weight: bold;
+        font-size: 12px;
+    }
+
+    /* Фиксация колонки со студентами при скролле вправо */
+    .excel-table td.student-name, .excel-table th.student-header {
+        text-align: left;
+        min-width: 220px;
+        position: sticky;
+        left: 0;
+        background: #f8fafc; /* Легкий фон, чтобы отличать от оценок */
+        z-index: 10;
+        border-right: 2px solid #64748b; /* Жирная линия после имен */
+    }
+
+    /* Превращаем select в прозрачную ячейку */
+    .excel-table select {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        outline: none;
+        appearance: none; /* Убираем стандартную стрелку браузера */
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Подсветка ячейки при клике */
+    .excel-table select:focus {
+        background: #e0f2fe;
+        box-shadow: inset 0 0 0 2px #3b82f6;
+    }

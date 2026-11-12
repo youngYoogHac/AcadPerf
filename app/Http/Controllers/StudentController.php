@@ -6,35 +6,46 @@ use App\Models\Group;
 use App\Models\Student;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class StudentController extends Controller
 {
-    public function index(): View
+    public function store(Request $request, Group $group)
     {
-        $students = Student::with('group')->orderBy('last_name')->get();
-        $groups = Group::orderBy('name')->get();
+        $request->validate(['full_name' => 'required|string|max:255']);
         
-        return view('admin.students.index', compact('students', 'groups'));
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'group_id'    => 'required|exists:groups,id',
-            'last_name'   => 'required|string|max:100',
-            'first_name'  => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
+        $parts = explode(' ', trim($request->input('full_name')));
+        
+        $student = Student::create([
+            'group_id'    => $group->id,
+            // Автоматически делаем первую букву заглавной!
+            'last_name'   => mb_convert_case($parts[0] ?? 'Неизвестно', MB_CASE_TITLE, "UTF-8"),
+            'first_name'  => mb_convert_case($parts[1] ?? '', MB_CASE_TITLE, "UTF-8"),
+            'middle_name' => mb_convert_case($parts[2] ?? '', MB_CASE_TITLE, "UTF-8"),
         ]);
 
-        Student::create($validated);
-
-        return back()->with('success', 'Студент добавлен в группу.');
+        return response()->json(['success' => true, 'student' => $student]);
     }
 
-    public function destroy(Student $student): RedirectResponse
+    public function update(Request $request, Student $student)
     {
+        $request->validate(['full_name' => 'required|string|max:255']);
+        
+        $parts = explode(' ', trim($request->input('full_name')));
+        
+        $student->update([
+            'last_name'   => mb_convert_case($parts[0] ?? 'Неизвестно', MB_CASE_TITLE, "UTF-8"),
+            'first_name'  => mb_convert_case($parts[1] ?? '', MB_CASE_TITLE, "UTF-8"),
+            'middle_name' => mb_convert_case($parts[2] ?? '', MB_CASE_TITLE, "UTF-8"),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function destroy(Student $student)
+    {
+        // Благодаря каскадному удалению, его оценки тоже удалятся
         $student->delete();
-        return back()->with('success', 'Студент удален.');
+        
+        return response()->json(['success' => true]);
     }
 }
