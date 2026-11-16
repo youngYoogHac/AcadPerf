@@ -103,13 +103,22 @@
                         <th style="text-align: center; min-width: 80px;">Подгр.</th>
                         
                         @foreach($schedules as $schedule)
-                            <th class="schedule-col" data-schedule-id="{{ $schedule->id }}" data-date="{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}" style="min-width: 100px; position: relative; vertical-align: top; padding: 5px;">
+                            <th class="schedule-col" 
+                                data-schedule-id="{{ $schedule->id }}" 
+                                data-date="{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}" 
+                                data-pair-number="{{ $schedule->pair_number }}"
+                                style="min-width: 100px; position: relative; vertical-align: top; padding: 5px;">
                                 {{ \Carbon\Carbon::parse($schedule->date)->format('d.m') }}<br>
                                 <small>{{ $schedule->pair_number }} пара</small><br>
                                 
-                                {{-- Дропдаун для смены типа пары --}}
-                                <select class="lesson-type-select" data-schedule-id="{{ $schedule->id }}" disabled style="width: 100%; font-size: 10px; padding: 2px; margin-top: 4px; border: 1px solid transparent; background: transparent; text-align: center; color: #666; appearance: none; cursor: default; outline: none;">
-                                    @foreach($lessonTypes ?? [] as $type)
+                                {{-- Текст для режима просмотра --}}
+                                <small class="schedule-type-text" style="color: #666; font-size: 10px;">
+                                    {{ $schedule->lessonType->name ?? '' }}
+                                </small>
+
+                                {{-- Выпадающий список для режима редактирования --}}
+                                <select class="schedule-type-select" data-schedule-id="{{ $schedule->id }}" style="display: none; width: 100%; font-size: 10px; border: 1px solid #ccc; margin-top: 2px;">
+                                    @foreach($lessonTypes as $type)
                                         <option value="{{ $type->id }}" @selected($schedule->lesson_type_id == $type->id)>{{ $type->name }}</option>
                                     @endforeach
                                 </select>
@@ -123,7 +132,6 @@
                         <th id="new-schedule-header" style="display: none; min-width: 160px; width: 160px; background: #e2e8f0; vertical-align: top; padding: 5px; box-sizing: border-box;">
                             <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
                                 <input type="date" id="new-schedule-date" style="width: 100%; font-size: 11px; border: 1px solid #ccc; padding: 3px; box-sizing: border-box;">
-                                
                                 <select id="new-schedule-pair" style="width: 100%; font-size: 11px; border: 1px solid #ccc; padding: 3px; box-sizing: border-box;">
                                     <option value="1">1 пара</option>
                                     <option value="2">2 пара</option>
@@ -132,13 +140,12 @@
                                     <option value="5">5 пара</option>
                                     <option value="6">6 пара</option>
                                 </select>
-
+                                {{-- Выбор типа пары --}}
                                 <select id="new-schedule-type" style="width: 100%; font-size: 11px; border: 1px solid #ccc; padding: 3px; box-sizing: border-box;">
-                                    @foreach($lessonTypes ?? [] as $type)
+                                    @foreach($lessonTypes as $type)
                                         <option value="{{ $type->id }}">{{ $type->name }}</option>
                                     @endforeach
                                 </select>
-
                                 <button type="button" id="btn-add-schedule" style="width: 100%; padding: 4px; font-size: 11px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; box-sizing: border-box;">+ Добавить</button>
                             </div>
                         </th>
@@ -192,7 +199,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const token = '{{ csrf_token() }}';
-    const lessonTypes = @json($lessonTypes ?? []); // Получаем список типов для JS
 
     // ==========================================
     // ЛОГИКА РЕЖИМА РЕДАКТИРОВАНИЯ
@@ -202,32 +208,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
     btnEnableEdit.addEventListener('click', function() {
+        // Меняем кнопки
         btnEnableEdit.style.display = 'none';
         btnSubmitEdit.style.display = 'inline-flex';
         btnCancelEdit.style.display = 'inline-flex';
 
-        // Разблокируем все текстовые поля
+        // Разблокируем все текстовые поля (убираем readonly)
         document.querySelectorAll('input[type="text"]').forEach(input => {
             input.removeAttribute('readonly');
             input.style.cursor = 'text';
             input.style.backgroundColor = '#fff';
         });
 
-        // Разблокируем дропдауны типа пары
-        document.querySelectorAll('.lesson-type-select').forEach(select => {
-            select.removeAttribute('disabled');
-            select.style.border = '1px solid #ccc';
-            select.style.backgroundColor = '#fff';
-            select.style.cursor = 'pointer';
-            select.style.appearance = 'auto'; // Возвращаем стрелочку
-            select.style.color = '#111827';
-        });
-
+        // Показываем N+1 колонку и строку
         document.getElementById('new-schedule-header').style.display = 'table-cell';
         document.getElementById('new-student-row').style.display = 'table-row';
 
-        document.querySelectorAll('.delete-student-btn').forEach(btn => btn.style.display = 'inline-block');
-        document.querySelectorAll('.delete-schedule-btn').forEach(btn => btn.style.display = 'inline-block');
+        // Показываем кнопки удаления
+        document.querySelectorAll('.delete-student-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+        });
+        document.querySelectorAll('.delete-schedule-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+        });
+
+        // Показываем выпадающие списки типов пар в заголовках
+        document.querySelectorAll('.schedule-type-text').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.schedule-type-select').forEach(el => el.style.display = 'inline-block');
     });
 
     // ==========================================
@@ -259,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let originalValue = input.value;
         const saveName = () => {
             if (input.hasAttribute('readonly')) return; 
+
             const newValue = input.value.trim();
             const studentId = input.dataset.studentId;
             if (newValue === originalValue || !newValue) return;
@@ -273,7 +281,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     originalValue = newValue;
                     input.style.backgroundColor = '#dcfce7';
-                    setTimeout(() => input.style.backgroundColor = input.hasAttribute('readonly') ? 'transparent' : '#fff', 500);
+                    setTimeout(() => {
+                        input.style.backgroundColor = input.hasAttribute('readonly') ? 'transparent' : '#fff';
+                    }, 500);
                 }
             })
             .catch(() => alert('Ошибка при сохранении имени'));
@@ -284,34 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.student-name-input').forEach(bindNameInput);
 
     // ==========================================
-    // 3. ИЗМЕНЕНИЕ ТИПА ПАРЫ (Лекция/Практика)
-    // ==========================================
-    function bindLessonTypeSelect(select) {
-        select.addEventListener('change', function() {
-            const scheduleId = this.dataset.scheduleId;
-            const typeId = this.value;
-
-            fetch(`/journal/schedule/${scheduleId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
-                body: JSON.stringify({ lesson_type_id: typeId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    this.style.backgroundColor = '#dcfce7';
-                    setTimeout(() => {
-                        this.style.backgroundColor = this.hasAttribute('disabled') ? 'transparent' : '#fff';
-                    }, 500);
-                }
-            })
-            .catch(() => alert('Ошибка при изменении типа пары'));
-        });
-    }
-    document.querySelectorAll('.lesson-type-select').forEach(bindLessonTypeSelect);
-
-    // ==========================================
-    // 4. УДАЛЕНИЕ СТУДЕНТА / КОЛОНКИ
+    // 3. УДАЛЕНИЕ СТУДЕНТА
     // ==========================================
     function bindDeleteStudentBtn(btn) {
         btn.addEventListener('mouseenter', () => btn.style.opacity = '1');
@@ -320,16 +303,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const studentId = this.dataset.studentId;
             const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
             const studentName = row.querySelector('.student-name-input').value;
+
             if (!confirm(`Удалить студента ${studentName} и все его оценки?`)) return;
 
             fetch(`/journal/student/${studentId}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
-            }).then(res => res.json()).then(data => { if (data.success) row.remove(); });
+            })
+            .then(res => res.json())
+            .then(data => { if (data.success) row.remove(); })
+            .catch(() => alert('Ошибка при удалении студента'));
         });
     }
     document.querySelectorAll('.delete-student-btn').forEach(bindDeleteStudentBtn);
 
+    // ==========================================
+    // 4. УДАЛЕНИЕ КОЛОНКИ (ПАРЫ)
+    // ==========================================
     function bindDeleteScheduleBtn(btn) {
         btn.addEventListener('mouseenter', () => btn.style.opacity = '1');
         btn.addEventListener('mouseleave', () => btn.style.opacity = '0.6');
@@ -337,17 +327,22 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             const scheduleId = this.dataset.scheduleId;
+
             if (!confirm('Удалить эту дату (пару) и все оценки за нее?')) return;
 
             fetch(`/journal/schedule/${scheduleId}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' }
-            }).then(res => res.json()).then(data => {
+            })
+            .then(res => res.json())
+            .then(data => {
                 if (data.success) {
-                    document.querySelector(`th[data-schedule-id="${scheduleId}"]`).remove();
+                    const th = document.querySelector(`th[data-schedule-id="${scheduleId}"]`);
+                    if (th) th.remove();
                     document.querySelectorAll(`td[data-schedule-id="${scheduleId}"]`).forEach(td => td.remove());
                 }
-            });
+            })
+            .catch(() => alert('Ошибка при удалении пары'));
         });
     }
     document.querySelectorAll('.delete-schedule-btn').forEach(bindDeleteScheduleBtn);
@@ -358,12 +353,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-add-schedule').addEventListener('click', function() {
         const dateInput = document.getElementById('new-schedule-date');
         const pairInput = document.getElementById('new-schedule-pair');
-        const typeInput = document.getElementById('new-schedule-type');
+        const typeInput = document.getElementById('new-schedule-type'); 
+        
         const date = dateInput.value;
         const pair = pairInput.value;
         const typeId = typeInput.value;
         
         if (!date) { alert('Выберите дату!'); return; }
+
         this.disabled = true;
         this.innerText = '...';
 
@@ -380,39 +377,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const dateObj = new Date(s.date);
                 const dateStr = String(dateObj.getDate()).padStart(2, '0') + '.' + String(dateObj.getMonth() + 1).padStart(2, '0');
+                
+                const typeName = s.lesson_type ? s.lesson_type.name : '';
 
                 const existingThs = Array.from(document.querySelectorAll('th.schedule-col'));
                 let insertBeforeTh = document.getElementById('new-schedule-header');
-                for (let th of existingThs) {
-                    if (sDate < th.dataset.date) { insertBeforeTh = th; break; }
-                }
 
-                // Генерируем HTML для выпадающего списка типов
-                let selectOptions = '';
-                lessonTypes.forEach(type => {
-                    const selected = type.id == s.lesson_type_id ? 'selected' : '';
-                    selectOptions += `<option value="${type.id}" ${selected}>${type.name}</option>`;
-                });
+                // УМНАЯ СОРТИРОВКА (Дата + Номер пары)
+                for (let th of existingThs) {
+                    const thDate = th.dataset.date;
+                    const thPair = parseInt(th.dataset.pairNumber || 0);
+                    
+                    if (sDate < thDate || (sDate === thDate && parseInt(pair) < thPair)) {
+                        insertBeforeTh = th;
+                        break;
+                    }
+                }
 
                 const th = document.createElement('th');
                 th.className = 'schedule-col';
                 th.dataset.scheduleId = s.id;
                 th.dataset.date = sDate;
+                th.dataset.pairNumber = s.pair_number; 
                 th.style.minWidth = '100px';
                 th.style.position = 'relative';
                 th.style.verticalAlign = 'top';
                 th.style.padding = '5px';
                 th.innerHTML = `
                     ${dateStr}<br><small>${s.pair_number} пара</small><br>
-                    <select class="lesson-type-select" data-schedule-id="${s.id}" style="width: 100%; font-size: 10px; padding: 2px; margin-top: 4px; border: 1px solid #ccc; background: #fff; text-align: center;">
-                        ${selectOptions}
+                    <small class="schedule-type-text" style="color: #666; font-size: 10px;">${typeName}</small>
+                    <select class="schedule-type-select" data-schedule-id="${s.id}" style="display: inline-block; width: 100%; font-size: 10px; border: 1px solid #ccc; margin-top: 2px;">
+                        @foreach($lessonTypes as $type)
+                            <option value="{{ $type->id }}" ${s.lesson_type_id == {{ $type->id }} ? 'selected' : ''}>{{ $type->name }}</option>
+                        @endforeach
                     </select>
                     <button type="button" class="delete-schedule-btn" data-schedule-id="${s.id}" title="Удалить пару" style="display: inline-block; position: absolute; top: 2px; right: 2px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 2px 5px; opacity: 0.6;">✖</button>
                 `;
                 
                 insertBeforeTh.parentNode.insertBefore(th, insertBeforeTh);
                 bindDeleteScheduleBtn(th.querySelector('.delete-schedule-btn'));
-                bindLessonTypeSelect(th.querySelector('.lesson-type-select')); // Привязываем событие к новому селекту
+                
+                // Привязываем событие изменения типа для новой колонки
+                bindScheduleTypeSelect(th.querySelector('.schedule-type-select'));
 
                 const colIndex = Array.from(insertBeforeTh.parentNode.children).indexOf(insertBeforeTh);
 
@@ -433,12 +439,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 dateInput.value = '';
             }
         })
-        .catch(error => { console.error(error); alert('Ошибка при добавлении пары'); })
+        .catch(error => {
+            console.error(error);
+            alert('Ошибка при добавлении пары');
+        })
         .finally(() => { this.disabled = false; this.innerText = '+ Добавить'; });
     });
 
     // ==========================================
-    // 6. ДОБАВЛЕНИЕ СТУДЕНТА
+    // 6. СОХРАНЕНИЕ ТИПА ПАРЫ (ЛЕКЦИЯ / ПРАКТИКА)
+    // ==========================================
+    function bindScheduleTypeSelect(select) {
+        select.addEventListener('change', function() {
+            const scheduleId = this.dataset.scheduleId;
+            const typeId = this.value;
+
+            fetch(`/journal/schedule/${scheduleId}/type`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+                body: JSON.stringify({ lesson_type_id: typeId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    this.style.backgroundColor = '#dcfce7';
+                    setTimeout(() => this.style.backgroundColor = '', 500);
+                    // Обновляем текст рядом, чтобы при отмене редактирования было правильное значение
+                    const textEl = this.parentElement.querySelector('.schedule-type-text');
+                    if (textEl) textEl.textContent = this.options[this.selectedIndex].text;
+                }
+            })
+            .catch(() => alert('Ошибка при сохранении типа пары'));
+        });
+    }
+    document.querySelectorAll('.schedule-type-select').forEach(bindScheduleTypeSelect);
+
+    // ==========================================
+    // 7. ДОБАВЛЕНИЕ СТУДЕНТА (С УЧЕТОМ СОРТИРОВКИ)
     // ==========================================
     const newStudentInput = document.getElementById('new-student-input');
     newStudentInput.addEventListener('keypress', function(e) {
@@ -446,6 +483,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const fullName = this.value.trim();
             if (!fullName) return;
+
             this.disabled = true;
             this.placeholder = 'Добавление...';
 
@@ -489,10 +527,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         const newNameStr = `${s.last_name} ${s.first_name}`.toLowerCase();
                         const existingRows = Array.from(document.querySelectorAll('#students-tbody tr[data-student-id]'));
                         let inserted = false;
+
                         for (let row of existingRows) {
                             const rowNameStr = row.querySelector('.student-name-input').value.toLowerCase();
                             const isGreater = newNameStr.localeCompare(rowNameStr) === 1;
                             const isLess = newNameStr.localeCompare(rowNameStr) === -1;
+                            
                             if ((currentSort === 'name_asc' && isLess) || (currentSort === 'name_desc' && isGreater)) {
                                 row.parentNode.insertBefore(tr, row);
                                 inserted = true;
@@ -500,16 +540,21 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                         if (!inserted) nPlusOneRow.parentNode.insertBefore(tr, nPlusOneRow);
+
                     } else if (currentSort === 'id_desc') {
                         document.getElementById('students-tbody').prepend(tr);
                     } else {
                         nPlusOneRow.parentNode.insertBefore(tr, nPlusOneRow);
                     }
+
                     this.value = '';
                 }
             })
             .catch(() => alert('Ошибка при добавлении студента'))
-            .finally(() => { this.disabled = false; this.placeholder = '+ Введите ФИО и нажмите Enter...'; });
+            .finally(() => { 
+                this.disabled = false; 
+                this.placeholder = '+ Введите ФИО и нажмите Enter...';
+            });
         }
     });
 });

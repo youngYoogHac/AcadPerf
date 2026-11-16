@@ -94,7 +94,8 @@ class JournalController extends Controller
         // 2. Пары (даты)
         $schedulesQuery = Schedule::where('group_id', $group->id)
             ->where('subject_id', $subject->id)
-            ->orderBy('date');
+            ->orderBy('date')
+            ->orderBy('pair_number');
 
         if ($request->filled('filter_type')) {
             if ($request->filter_type === 'single' && $request->filled('filter_date')) {
@@ -283,6 +284,13 @@ class JournalController extends Controller
         
         $schedule->update(['lesson_type_id' => $request->lesson_type_id]);
         
+        return response()->json(['success' => true]);
+    }
+
+    public function updateScheduleType(Request $request, Schedule $schedule)
+    {
+        $request->validate(['lesson_type_id' => 'required|exists:lesson_types,id']);
+        $schedule->update(['lesson_type_id' => $request->lesson_type_id]);
         return response()->json(['success' => true]);
     }
 

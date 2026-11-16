@@ -15,20 +15,22 @@ class JournalSheetImport implements ToCollection
 {
     protected $group;
     protected $subject;
-    protected $parent; // Ссылка на главный класс
+    protected $parent;
 
     public function __construct($group, $subject, $parent)
     {
         $this->group = $group;
         $this->subject = $subject;
         $this->parent = $parent;
-        // Если этот класс был вызван, значит нужный лист найден!
         $this->parent->sheetFound = true; 
     }
 
     public function collection(Collection $rows): void
     {
-        $validStudents = Student::where('group_id', $this->group->id)->get();
+        // Сортируем студентов по длине ФИО, чтобы длинные имена искались первыми
+        $validStudents = Student::where('group_id', $this->group->id)->get()
+            ->sortByDesc(fn($s) => mb_strlen(trim($s->last_name . ' ' . $s->first_name . ' ' . $s->middle_name)))
+            ->values();
 
         $validSchedules = Schedule::where('group_id', $this->group->id)
             ->where('subject_id', $this->subject->id)
@@ -69,6 +71,9 @@ class JournalSheetImport implements ToCollection
             }
         }
 
+        // СОРТИРОВКА КОЛОНОК ПО ДАТЕ И НОМЕРУ ПАРЫ
+        asort($columnMap);
+
         $dataRows = $rows->slice(2); 
 
         foreach ($dataRows as $row) {
@@ -86,12 +91,14 @@ class JournalSheetImport implements ToCollection
                 }
             }
 
-            // Пытаемся считать подгруппу из колонки B (индекс 1)
-            $subgroup = isset($row[1]) ? trim($row[1]) : null;
+            // Обработка подгруппы (убираем лишние нули)
+            $subgroup = isset($row[1]) ? trim((string)$row[1]) : null;
+            if (is_numeric($subgroup) && strpos($subgroup, '.') !== false) {
+                $subgroup = (string)(float)$subgroup; 
+            }
 
-            // АВТОСОЗДАНИЕ СТУДЕНТА
             if (!$student) {
-                $nameParts = explode(' ', trim($excelName));
+                $nameParts = preg_split('/\s+/', $excelName);
                 $student = Student::create([
                     'group_id'    => $this->group->id,
                     'subgroup'    => $subgroup,
@@ -101,7 +108,6 @@ class JournalSheetImport implements ToCollection
                 ]);
                 $validStudents->push($student);
             } else {
-                // Если студент найден, но подгруппа изменилась — обновляем её
                 if ($subgroup && $student->subgroup !== $subgroup) {
                     $student->update(['subgroup' => $subgroup]);
                 }
@@ -113,7 +119,6 @@ class JournalSheetImport implements ToCollection
 
                 $markName = mb_strtolower($rawMarkName);
 
-                // АВТОСОЗДАНИЕ ПАРЫ
                 if (!$validSchedules->has($scheduleKey)) {
                     $parts = explode('-', $scheduleKey);
                     $pairNumber = array_pop($parts);
@@ -135,20 +140,14 @@ class JournalSheetImport implements ToCollection
                 }
                 $schedule = $validSchedules[$scheduleKey];
 
-                // Ищем оценку в загруженном справочнике
                 $mark = $marks->get($markName);
 
-                // ЕСЛИ ОЦЕНКИ НЕТ — СОЗДАЕМ ЕЕ АВТОМАТИЧЕСКИ (как в ручном режиме)
                 if (!$mark) {
-                    // Определяем тип: если есть цифры или слэш, это оценка, иначе посещаемость
                     $type = (preg_match('/[0-9\/]/', $rawMarkName)) ? 'grade' : 'attendance';
-                    
                     $mark = Mark::firstOrCreate(
-                        ['name' => $rawMarkName], // Оригинальное название (например, "3 // 4")
+                        ['name' => $rawMarkName], 
                         ['type' => $type]
                     );
-                    
-                    // Добавляем в память, чтобы для следующих студентов не делать запрос к БД
                     $marks->put($markName, $mark);
                 }
 
@@ -156,7 +155,6 @@ class JournalSheetImport implements ToCollection
                     ['student_id' => $student->id, 'schedule_id' => $schedule->id],
                     ['mark_id' => $mark->id]
                 );
-                // Увеличиваем счетчик в ГЛАВНОМ классе
                 $this->parent->savedCount++;
             }
         }

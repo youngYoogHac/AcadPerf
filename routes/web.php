@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/journal/{group}/{subject}/schedule', [JournalController::class, 'storeSchedule'])->name('journal.schedule.store');
     Route::put('/journal/schedule/{schedule}', [JournalController::class, 'updateSchedule'])->name('journal.schedule.update');
+    Route::put('/journal/schedule/{schedule}/type', [JournalController::class, 'updateScheduleType'])->name('journal.schedule.type');
     Route::delete('/journal/schedule/{schedule}', [JournalController::class, 'destroySchedule'])->name('journal.schedule.destroy');
 
     Route::post('/journal/{group}/student', [StudentController::class, 'store'])->name('journal.student.store');
