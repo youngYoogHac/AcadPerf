@@ -120,8 +120,9 @@ class JournalController extends Controller
     {
         $data = $this->getFilteredData($request, $group, $subject);
         $marks = Mark::all();
+        
+        $lessonTypes = \App\Models\LessonType::all(); 
 
-        // Получаем список всех уникальных подгрупп для этой группы
         $subgroups = Student::where('group_id', $group->id)
             ->whereNotNull('subgroup')
             ->where('subgroup', '!=', '')
@@ -133,7 +134,8 @@ class JournalController extends Controller
             'group' => $group, 
             'subject' => $subject, 
             'marks' => $marks,
-            'subgroups' => $subgroups // <-- Передаем в шаблон
+            'subgroups' => $subgroups,
+            'lessonTypes' => $lessonTypes
         ]));
     }
 
@@ -251,10 +253,12 @@ class JournalController extends Controller
 
     public function storeSchedule(Request $request, Group $group, Subject $subject)
     {
-        $request->validate(['date' => 'required|date', 'pair_number' => 'required|integer']);
+        $request->validate([
+            'date' => 'required|date', 
+            'pair_number' => 'required|integer',
+            'lesson_type_id' => 'required|exists:lesson_types,id'
+        ]);
         
-        $lessonType = \App\Models\LessonType::first()?->id ?? 1;
-
         $schedule = Schedule::firstOrCreate(
             [
                 'group_id' => $group->id,
@@ -264,9 +268,11 @@ class JournalController extends Controller
             ],
             [
                 'user_id' => auth()->id() ?? 1,
-                'lesson_type_id' => $lessonType,
+                'lesson_type_id' => $request->lesson_type_id,
             ]
         );
+
+        $schedule->load('lessonType');
 
         return response()->json(['success' => true, 'schedule' => $schedule]);
     }
