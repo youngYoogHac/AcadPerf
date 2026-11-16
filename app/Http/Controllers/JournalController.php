@@ -271,6 +271,15 @@ class JournalController extends Controller
         return response()->json(['success' => true, 'schedule' => $schedule]);
     }
 
+        public function updateSchedule(Request $request, Schedule $schedule)
+    {
+        $request->validate(['lesson_type_id' => 'required|exists:lesson_types,id']);
+        
+        $schedule->update(['lesson_type_id' => $request->lesson_type_id]);
+        
+        return response()->json(['success' => true]);
+    }
+
     public function destroySchedule(Schedule $schedule)
     {
         $schedule->delete(); // Оценки удалятся автоматически благодаря cascadeOnDelete
