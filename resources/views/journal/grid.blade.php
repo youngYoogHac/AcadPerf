@@ -7,7 +7,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h1 style="margin: 0;">Журнал: {{ $group->name }} — {{ $subject->name }}</h1>
 
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <a href="{{ route('journal.template', [$group->id, $subject->id]) }}?{{ request()->getQueryString() }}" class="btn btn-small" style="background: #3b82f6;">
                     📄 Скачать шаблон
                 </a>
@@ -22,6 +22,13 @@
                     <input type="file" name="excel_file" id="excel_file" required style="font-size: 0.9rem;">
                     <button type="submit" class="btn btn-small btn-secondary" style="margin: 0;">Загрузить</button>
                 </form>
+
+                {{-- КНОПКИ РЕЖИМА РЕДАКТИРОВАНИЯ --}}
+                <div style="margin-left: 20px; display: flex; gap: 10px; padding-left: 20px; border-left: 2px solid #e5e7eb;">
+                    <button type="button" id="btn-enable-edit" class="btn" style="background: #f59e0b; color: white;">✏️ Редактировать</button>
+                    <button type="submit" id="btn-submit-edit" form="journal-form" class="btn" style="display: none; background: #059669; color: white;">💾 Сохранить</button>
+                    <a href="{{ request()->fullUrl() }}" id="btn-cancel-edit" class="btn btn-secondary" style="display: none;">Отмена</a>
+                </div>
             </div>
         </div>
 
@@ -38,10 +45,8 @@
                     <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Подгруппа:</label>
                     <select name="filter_subgroup" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: #fff;">
                         <option value="">Все</option>
-                        @foreach($subgroups as $subgroup)
-                            <option value="{{ $subgroup }}" {{ request('filter_subgroup') == $subgroup ? 'selected' : '' }}>
-                                {{ $subgroup }}
-                            </option>
+                        @foreach($subgroups ?? [] as $subgroup)
+                            <option value="{{ $subgroup }}" {{ request('filter_subgroup') == $subgroup ? 'selected' : '' }}>{{ $subgroup }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -88,8 +93,8 @@
             </form>
         </div>
 
-        {{-- ОСНОВНАЯ ФОРМА --}}
-        <form action="{{ route('journal.update-grid') }}" method="POST">
+        {{-- ОСНОВНАЯ ФОРМА С ТАБЛИЦЕЙ --}}
+        <form id="journal-form" action="{{ route('journal.update-grid') }}" method="POST">
             @csrf
             <table class="excel-table" id="journal-table">
                 <thead>
@@ -101,12 +106,13 @@
                             <th class="schedule-col" data-schedule-id="{{ $schedule->id }}" data-date="{{ \Carbon\Carbon::parse($schedule->date)->format('Y-m-d') }}" style="min-width: 80px; position: relative; vertical-align: top; padding: 5px;">
                                 {{ \Carbon\Carbon::parse($schedule->date)->format('d.m') }}<br>
                                 <small>{{ $schedule->pair_number }} пара</small>
-                                <button type="button" class="delete-schedule-btn" data-schedule-id="{{ $schedule->id }}" title="Удалить пару" style="position: absolute; top: 2px; right: 2px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 2px 5px; opacity: 0.6; transition: 0.2s;">✖</button>
+                                {{-- Кнопка удаления скрыта по умолчанию --}}
+                                <button type="button" class="delete-schedule-btn" data-schedule-id="{{ $schedule->id }}" title="Удалить пару" style="display: none; position: absolute; top: 2px; right: 2px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 2px 5px; opacity: 0.6; transition: 0.2s;">✖</button>
                             </th>
                         @endforeach
                         
-                        {{-- N+1 Колонка --}}
-                        <th id="new-schedule-header" style="min-width: 150px; width: 150px; background: #e2e8f0; vertical-align: top; padding: 5px; box-sizing: border-box;">
+                        {{-- N+1 Колонка (скрыта по умолчанию) --}}
+                        <th id="new-schedule-header" style="display: none; min-width: 150px; width: 150px; background: #e2e8f0; vertical-align: top; padding: 5px; box-sizing: border-box;">
                             <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
                                 <input type="date" id="new-schedule-date" style="width: 100%; font-size: 11px; border: 1px solid #ccc; padding: 3px; box-sizing: border-box;">
                                 <select id="new-schedule-pair" style="width: 100%; font-size: 11px; border: 1px solid #ccc; padding: 3px; box-sizing: border-box;">
@@ -125,36 +131,38 @@
                 <tbody id="students-tbody">
                     @foreach($students as $student)
                         <tr data-student-id="{{ $student->id }}">
+                            {{-- ФИО --}}
                             <td class="student-name" style="padding: 0;">
                                 <div style="display: flex; align-items: center; width: 100%;">
-                                    <input type="text" class="student-name-input" data-student-id="{{ $student->id }}" value="{{ trim($student->last_name . ' ' . $student->first_name . ' ' . $student->middle_name) }}" style="flex-grow: 1; border: none; background: transparent; padding: 6px; font-weight: bold; outline: none; width: 100%;">
-                                    <button type="button" class="delete-student-btn" data-student-id="{{ $student->id }}" title="Удалить" style="background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; margin-right: 4px; opacity: 0.6; transition: 0.2s;">✖</button>
+                                    <input type="text" class="student-name-input" data-student-id="{{ $student->id }}" value="{{ trim($student->last_name . ' ' . $student->first_name . ' ' . $student->middle_name) }}" readonly style="flex-grow: 1; border: none; background: transparent; padding: 6px; font-weight: bold; outline: none; width: 100%; cursor: default;">
+                                    <button type="button" class="delete-student-btn" data-student-id="{{ $student->id }}" title="Удалить" style="display: none; background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; margin-right: 4px; opacity: 0.6; transition: 0.2s;">✖</button>
                                 </div>
                             </td>
 
-                            {{-- Столбец с подгруппой --}}
+                            {{-- Подгруппа --}}
                             <td style="text-align: center; padding: 0;">
-                                <input type="text" name="subgroups[{{ $student->id }}]" value="{{ $student->subgroup }}" style="width: 100%; height: 100%; border: none; text-align: center; font-size: 14px; background: transparent; outline: none;" placeholder="-">
+                                <input type="text" name="subgroups[{{ $student->id }}]" value="{{ $student->subgroup }}" readonly style="width: 100%; height: 100%; border: none; text-align: center; font-size: 14px; background: transparent; outline: none; cursor: default;" placeholder="-">
                             </td>
                             
+                            {{-- Оценки --}}
                             @foreach($schedules as $schedule)
                                 @php 
                                     $markName = $attendances[$student->id][$schedule->id]->mark->name ?? ''; 
                                 @endphp
                                 <td data-schedule-id="{{ $schedule->id }}">
-                                    <input type="text" name="marks[{{ $student->id }}][{{ $schedule->id }}]" value="{{ $markName }}" style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: transparent; outline: none;" placeholder="-">
+                                    <input type="text" name="marks[{{ $student->id }}][{{ $schedule->id }}]" value="{{ $markName }}" readonly style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: transparent; outline: none; cursor: default;" placeholder="-">
                                 </td>
                             @endforeach
                             <td style="background: #f1f5f9;"></td> 
                         </tr>
                     @endforeach
                     
-                    {{-- N+1 Строка --}}
-                    <tr id="new-student-row" style="background: #f8fafc;">
+                    {{-- N+1 Строка (скрыта по умолчанию) --}}
+                    <tr id="new-student-row" style="display: none; background: #f8fafc;">
                         <td class="student-name" style="padding: 0;">
                             <input type="text" id="new-student-input" placeholder="+ Введите ФИО и нажмите Enter..." style="width: 100%; height: 100%; border: none; padding: 8px; background: transparent; font-weight: bold; outline: none;">
                         </td>
-                        <td style="background: #f1f5f9;"></td> {{-- Пустая ячейка под подгруппу --}}
+                        <td style="background: #f1f5f9;"></td>
                         @foreach($schedules as $schedule)
                             <td data-schedule-id="{{ $schedule->id }}" style="background: #f1f5f9;"></td>
                         @endforeach
@@ -162,10 +170,6 @@
                     </tr>
                 </tbody>
             </table>
-            
-            <div style="margin-top: 30px;">
-                <button type="submit" class="btn">Сохранить ведомость</button>
-            </div>
         </form>
     </div>
 
@@ -173,7 +177,42 @@
 document.addEventListener('DOMContentLoaded', function() {
     const token = '{{ csrf_token() }}';
 
+    // ==========================================
+    // ЛОГИКА РЕЖИМА РЕДАКТИРОВАНИЯ
+    // ==========================================
+    const btnEnableEdit = document.getElementById('btn-enable-edit');
+    const btnSubmitEdit = document.getElementById('btn-submit-edit');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+
+    btnEnableEdit.addEventListener('click', function() {
+        // Меняем кнопки
+        btnEnableEdit.style.display = 'none';
+        btnSubmitEdit.style.display = 'inline-flex';
+        btnCancelEdit.style.display = 'inline-flex';
+
+        // Разблокируем все текстовые поля (убираем readonly)
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.removeAttribute('readonly');
+            input.style.cursor = 'text';
+            input.style.backgroundColor = '#fff';
+        });
+
+        // Показываем N+1 колонку и строку
+        document.getElementById('new-schedule-header').style.display = 'table-cell';
+        document.getElementById('new-student-row').style.display = 'table-row';
+
+        // Показываем кнопки удаления
+        document.querySelectorAll('.delete-student-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+        });
+        document.querySelectorAll('.delete-schedule-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+        });
+    });
+
+    // ==========================================
     // 1. ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ФИЛЬТРОВ ДАТЫ
+    // ==========================================
     const filterType = document.getElementById('filter_type');
     const singleDateWrap = document.getElementById('single_date_wrap');
     const rangeDateWrap = document.getElementById('range_date_wrap');
@@ -193,10 +232,14 @@ document.addEventListener('DOMContentLoaded', function() {
     filterType.addEventListener('change', toggleDateFilters);
     toggleDateFilters(); 
 
+    // ==========================================
     // 2. СОХРАНЕНИЕ ИМЕНИ СТУДЕНТА
+    // ==========================================
     function bindNameInput(input) {
         let originalValue = input.value;
         const saveName = () => {
+            if (input.hasAttribute('readonly')) return; 
+
             const newValue = input.value.trim();
             const studentId = input.dataset.studentId;
             if (newValue === originalValue || !newValue) return;
@@ -211,7 +254,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     originalValue = newValue;
                     input.style.backgroundColor = '#dcfce7';
-                    setTimeout(() => input.style.backgroundColor = 'transparent', 500);
+                    setTimeout(() => {
+                        input.style.backgroundColor = input.hasAttribute('readonly') ? 'transparent' : '#fff';
+                    }, 500);
                 }
             })
             .catch(() => alert('Ошибка при сохранении имени'));
@@ -221,7 +266,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.querySelectorAll('.student-name-input').forEach(bindNameInput);
 
+    // ==========================================
     // 3. УДАЛЕНИЕ СТУДЕНТА
+    // ==========================================
     function bindDeleteStudentBtn(btn) {
         btn.addEventListener('mouseenter', () => btn.style.opacity = '1');
         btn.addEventListener('mouseleave', () => btn.style.opacity = '0.6');
@@ -243,7 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.querySelectorAll('.delete-student-btn').forEach(bindDeleteStudentBtn);
 
+    // ==========================================
     // 4. УДАЛЕНИЕ КОЛОНКИ (ПАРЫ)
+    // ==========================================
     function bindDeleteScheduleBtn(btn) {
         btn.addEventListener('mouseenter', () => btn.style.opacity = '1');
         btn.addEventListener('mouseleave', () => btn.style.opacity = '0.6');
@@ -263,7 +312,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     const th = document.querySelector(`th[data-schedule-id="${scheduleId}"]`);
                     if (th) th.remove();
-                    // Удаляем ячейки во всех строках (включая N+1, так как у них тоже есть data-schedule-id)
                     document.querySelectorAll(`td[data-schedule-id="${scheduleId}"]`).forEach(td => td.remove());
                 }
             })
@@ -272,7 +320,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.querySelectorAll('.delete-schedule-btn').forEach(bindDeleteScheduleBtn);
 
+    // ==========================================
     // 5. ДОБАВЛЕНИЕ КОЛОНКИ (ПАРЫ)
+    // ==========================================
     document.getElementById('btn-add-schedule').addEventListener('click', function() {
         const dateInput = document.getElementById('new-schedule-date');
         const pairInput = document.getElementById('new-schedule-pair');
@@ -308,7 +358,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
 
-                // 1. Создаем th
                 const th = document.createElement('th');
                 th.className = 'schedule-col';
                 th.dataset.scheduleId = s.id;
@@ -319,7 +368,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 th.style.padding = '5px';
                 th.innerHTML = `
                     ${dateStr}<br><small>${s.pair_number} пара</small>
-                    <button type="button" class="delete-schedule-btn" data-schedule-id="${s.id}" title="Удалить пару" style="position: absolute; top: 2px; right: 2px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 2px 5px; opacity: 0.6;">✖</button>
+                    <button type="button" class="delete-schedule-btn" data-schedule-id="${s.id}" title="Удалить пару" style="display: inline-block; position: absolute; top: 2px; right: 2px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; padding: 2px 5px; opacity: 0.6;">✖</button>
                 `;
                 
                 insertBeforeTh.parentNode.insertBefore(th, insertBeforeTh);
@@ -327,16 +376,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const colIndex = Array.from(insertBeforeTh.parentNode.children).indexOf(insertBeforeTh);
 
-                // 2. Вставляем td во все строки студентов
                 document.querySelectorAll('#students-tbody tr[data-student-id]').forEach(tr => {
                     const studentId = tr.dataset.studentId;
                     const td = document.createElement('td');
                     td.dataset.scheduleId = s.id;
-                    td.innerHTML = `<input type="text" name="marks[${studentId}][${s.id}]" style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: transparent; outline: none;" placeholder="-">`;
+                    td.innerHTML = `<input type="text" name="marks[${studentId}][${s.id}]" style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: #fff; outline: none;" placeholder="-">`;
                     tr.insertBefore(td, tr.children[colIndex]);
                 });
 
-                // 3. Вставляем td в N+1 строку
                 const nPlusOneRow = document.getElementById('new-student-row');
                 const nPlusOneTd = document.createElement('td');
                 nPlusOneTd.dataset.scheduleId = s.id;
@@ -353,7 +400,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .finally(() => { this.disabled = false; this.innerText = '+ Добавить'; });
     });
 
+    // ==========================================
     // 6. ДОБАВЛЕНИЕ СТУДЕНТА (С УЧЕТОМ СОРТИРОВКИ)
+    // ==========================================
     const newStudentInput = document.getElementById('new-student-input');
     newStudentInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
@@ -378,17 +427,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     let html = `<td class="student-name" style="padding: 0;">
                         <div style="display: flex; align-items: center; width: 100%;">
-                            <input type="text" class="student-name-input" data-student-id="${s.id}" value="${s.last_name} ${s.first_name} ${s.middle_name || ''}" style="flex-grow: 1; border: none; background: transparent; padding: 6px; font-weight: bold; outline: none; width: 100%;">
-                            <button type="button" class="delete-student-btn" data-student-id="${s.id}" style="background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; margin-right: 4px; opacity: 0.6;">✖</button>
+                            <input type="text" class="student-name-input" data-student-id="${s.id}" value="${s.last_name} ${s.first_name} ${s.middle_name || ''}" style="flex-grow: 1; border: none; background: #fff; padding: 6px; font-weight: bold; outline: none; width: 100%;">
+                            <button type="button" class="delete-student-btn" data-student-id="${s.id}" style="display: inline-block; background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; margin-right: 4px; opacity: 0.6;">✖</button>
                         </div>
                     </td>
                     <td style="text-align: center; padding: 0;">
-                        <input type="text" name="subgroups[${s.id}]" value="${s.subgroup || ''}" style="width: 100%; border: none; text-align: center; background: transparent;" placeholder="-">
+                        <input type="text" name="subgroups[${s.id}]" value="${s.subgroup || ''}" style="width: 100%; border: none; text-align: center; background: #fff;" placeholder="-">
                     </td>`;
 
                     document.querySelectorAll('th.schedule-col').forEach(th => {
                         const schedId = th.dataset.scheduleId;
-                        html += `<td data-schedule-id="${schedId}"><input type="text" name="marks[${s.id}][${schedId}]" style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: transparent; outline: none;" placeholder="-"></td>`;
+                        html += `<td data-schedule-id="${schedId}"><input type="text" name="marks[${s.id}][${schedId}]" style="width: 100%; border: none; text-align: center; font-size: 14px; font-weight: bold; background: #fff; outline: none;" placeholder="-"></td>`;
                     });
 
                     html += `<td style="background: #f1f5f9;"></td>`;
